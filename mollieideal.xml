@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension version="3.1" type="plugin" group="crowdfundingpayment" method="upgrade">
+    <name>PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL</name>
+    <author>Todor Iliev</author>
+    <copyright>Copyright (C) 2010 Todor Iliev ( ITPrism.com ). All rights reserved.</copyright>
+    <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
+    <authorEmail>todor@itprism.com</authorEmail>
+    <authorUrl>http://itprism.com</authorUrl>
+    <version>1.0</version>
+    <creationDate>31 August, 2013</creationDate>
+    <description>PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DESC</description>
+    
+    <languages  folder="language">
+        <language tag="en-GB">en-GB/en-GB.plg_crowdfundingpayment_mollieideal.ini</language>
+        <language tag="en-GB">en-GB/en-GB.plg_crowdfundingpayment_mollieideal.sys.ini</language>
+    </languages> 
+    
+    <files>
+		<folder>images</folder>
+		<folder>js</folder>
+        <filename plugin="mollieideal">mollieideal.php</filename>
+        <filename>index.html</filename>
+    </files>
+    
+    <help url="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_HELP_URL"/>
+    
+    <config>
+		<fields name="params">
+			<fieldset name="basic">
+			
+    	        <field name="partner_id" type="text" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PARTNER_ID" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PARTNER_ID_DESC" />
+    	        <field name="returnurl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL_DESC" class="span6" />
+    	        <field name="reporturl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL_DESC" class="span6" default="index.php?option=com_crowdfunding&amp;task=notifier.notify&amp;format=raw" />
+    	        <field name="spacer1" type="spacer" hr="true" />
+    	        <field name="testmode" type="radio" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE_DESC" class="btn-group" default="1">
+    	            <option value="0">JNO</option>
+    	            <option value="1">JYES</option>
+    	        </field>
+                
+                <field name="spacer2" type="spacer" hr="true" />
+                <field name="send_admin_mail" type="radio" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_ADMIN" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_ADMIN_DESC" class="btn-group" default="0">
+                    <option value="0">JNO</option>
+                    <option value="1">JYES</option>
+                </field>
+                <field name="send_user_mail" type="radio" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_USER" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_USER_DESC" class="btn-group" default="0" >
+                    <option value="0">JNO</option>
+                    <option value="1">JYES</option>
+                </field>
+                
+			</fieldset>
+	            
+        </fields>
+	</config>
+</extension>
