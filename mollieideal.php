@@ -172,9 +172,10 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         
         // Prepare the array that will be returned by this method
         $result = array(
-        	"project"     => null, 
-        	"reward"      => null, 
-        	"transaction" => null,
+        	"project"          => null, 
+        	"reward"           => null, 
+        	"transaction"      => null,
+            "payment_service"  => "Mollie iDEAL"
         );
         
         $transactionData = array(
@@ -303,7 +304,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             return;
         }
        
-        if(strcmp("com_crowdfunding.notify", $context) != 0){
+        if(strcmp("com_crowdfunding.notify.mollieideal", $context) != 0){
             return;
         }
         
