@@ -3,7 +3,7 @@ jQuery(document).ready(function() {
 	jQuery("#js-mollieideal-bank-id").on("change", function(event){
 		event.preventDefault();
 		
-		var bankId    = parseInt(jQuery(this).val());
+		var bankId    = jQuery(this).val();
 		
 		if(bankId > 0) {
 			
@@ -35,8 +35,13 @@ jQuery(document).ready(function() {
 					// Hide ajax loading image
 					jQuery("#js-mollie-ajax-loading").hide();
 					
-					// Set the URL to Mollie and show the button
-					jQuery("#js-continue-mollie").attr("href", response.data.url).show();
+					if(!response.success) {
+						jQuery("#js-mollieideal-bank-id").hide();
+						jQuery("#js-mollie-ideal-alert").html(response.text).show();
+					} else {
+						// Set the URL to Mollie and show the button
+						jQuery("#js-continue-mollie").attr("href", response.data.url).show();
+					}
 					
 				}
 					

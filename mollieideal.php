@@ -3,12 +3,8 @@
  * @package      CrowdFunding
  * @subpackage   Plugins
  * @author       Todor Iliev
- * @copyright    Copyright (C) 2010 Todor Iliev <todor@itprism.com>. All rights reserved.
+ * @copyright    Copyright (C) 2013 Todor Iliev <todor@itprism.com>. All rights reserved.
  * @license      http://www.gnu.org/copyleft/gpl.html GNU/GPL
- * CrowdFunding is free software. This version may have been modified pursuant
- * to the GNU General Public License, and as distributed it includes or
- * is derivative of works licensed under the GNU General Public License or
- * other free or open source software licenses.
  */
 
 // no direct access
@@ -62,7 +58,6 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         
         // Load the script that initialize the select element with banks.
         JHtml::_("jquery.framework");
-        $doc = JFactory::getDocument();
         $doc->addScript($pluginURI."/js/plg_crowdfundingpayment_mollieideal.js");
         
         // Check for valid partner ID
@@ -98,6 +93,8 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $html .= '<select name="bank_id" id="js-mollieideal-bank-id" data-project-id="'.(int)$item->id.'" data-reward-id="'.(int)$item->rewardId.'" data-amount="'.$item->amount.'" >';
         $html .= JHtml::_("select.options", $banks);
         $html .= '</select>';
+        
+        $html .= '<div class="alert hide" id="js-mollie-ideal-alert"></div>';
         
         $html .= '<div class="clearfix"></div>';
         $html .= '<img src="media/com_crowdfunding/images/ajax-loader.gif" width="16" height="16" id="js-mollie-ajax-loading" style="display: none;" />';
@@ -144,19 +141,11 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         // Load language
         $this->loadLanguage();
         
-        $requestMethod = $app->input->getMethod();
-        if(strcmp("GET", $requestMethod) != 0) {
-            $error  = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REQUEST_METHOD", $requestMethod).":\n";
-            $error .= "INPUT: " . var_export($app->input, true) . "\n";
-            JLog::add($error);
-            return;
-        }
-        
-        // Get partner ID
-        $partnerId = $this->params->get("partner_id");
-        
         // Get transaction ID
         $transactionId    = $app->input->get("transaction_id");
+        if(!$transactionId) {
+            return;
+        }
         
         // Get intention data
         $keys = array(
@@ -170,20 +159,25 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             return null;
         }
         
+        // Validate request method
+        $requestMethod = $app->input->getMethod();
+        if(strcmp("GET", $requestMethod) != 0) {
+            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+            $error .= JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REQUEST_METHOD", $requestMethod).":\n";
+            $error .= "INPUT: " . var_export($app->input, true) . "\n";
+            JLog::add($error);
+            return;
+        }
+        
+        // Get partner ID
+        $partnerId        = $this->params->get("partner_id");
+        
         // Prepare the array that will be returned by this method
         $result = array(
         	"project"          => null, 
         	"reward"           => null, 
         	"transaction"      => null,
             "payment_service"  => "Mollie iDEAL"
-        );
-        
-        $transactionData = array(
-            "txn_currency" => null,
-            "txn_amount"   => null,
-            "project_id"   => $intention->getProjectId(),
-            "user_id"      => $intention->getUserId(),
-            "reward_id"    => $intention->getRewardId(),
         );
         
         jimport("itprism.payment.mollie.ideal");
@@ -203,10 +197,15 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             $currencyId      = $params->get("project_currency");
             $currency        = CrowdFundingCurrency::getInstance($currencyId);
             
-            // Prepare transaction data
-            $transactionData["txn_currency"] = $currency->abbr;
-            $transactionData["txn_amount"]   = $paymentGateway->getAmount() / 100;
-            $transactionData["txn_id"]       = $paymentGateway->getTransactionId();
+            // Prepare the transaction data that will be validated.
+            $transactionData = array(
+                "txn_currency" => $currency->getAbbr(),
+                "txn_amount"   => $paymentGateway->getAmount() / 100, // The amount, which we received from Mollie, is multiplied by one hundred. So, we must divide it by 100. 
+                "project_id"   => $intention->getProjectId(),
+                "user_id"      => $intention->getUserId(),
+                "reward_id"    => ($intention->isAnonymous()) ? 0 : $intention->getRewardId(), // Set reward ID to 0 because anonymous users cannot sellect reward.
+                "txn_id"       => $paymentGateway->getTransactionId()
+            );
             
             // Set completed because the paid status is TRUE.
             $transactionData["txn_status"]   = "completed";
@@ -219,7 +218,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             );
             
             // Validate transaction data
-            $validData = $this->validateData($transactionData, $currency->abbr, $intention);
+            $validData = $this->validateData($transactionData);
             if(is_null($validData)) {
                 return $result;
             }
@@ -230,7 +229,8 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             
             $project   = CrowdFundingProject::getInstance($projectId);
             if(!$project->id) {
-                $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_PROJECT");
+                $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+                $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_PROJECT");
                 $error .= "\n". JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TRANSACTION_DATA", var_export($validData, true));
     			JLog::add($error);
     			return $result;
@@ -317,7 +317,8 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             
             // Check for an error.
             if ($return !== true) {
-                $error = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN");
+                $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+                $error .= JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN");
                 JLog::add($error);
             }
         }
@@ -336,7 +337,8 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
     		
     		// Check for an error.
     		if ($return !== true) {
-    		    $error = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_USER");
+    		    $error = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+    		    $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_USER");
     			JLog::add($error);
     		}
     		
@@ -345,30 +347,33 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
     }
     
 	/**
-     * Validate PayPal transaction
-     * @param array $data
+     * Validate the transaction.
+     * 
+     * @param array This is a transaction data, that comes from the payment gateway.
+     * 
      */
-    protected function validateData($data, $currency, $intention) {
+    protected function validateData($data) {
         
         $date    = new JDate();
         
         // Prepare transaction data
         $transaction = array(
-            "investor_id"		     => $intention->getUserId(),
-            "project_id"		     => $intention->getProjectId(),
-            "reward_id"			     => $intention->getRewardId(),
-        	"service_provider"       => "Mollie iDEAL",
+            "investor_id"		     => JArrayHelper::getValue($data, "user_id", 0, "int"),
+            "project_id"		     => JArrayHelper::getValue($data, "project_id", 0, "int"),
+            "reward_id"			     => JArrayHelper::getValue($data, "reward_id", 0, "int"),
         	"txn_id"                 => JArrayHelper::getValue($data, "txn_id"),
         	"txn_amount"		     => JArrayHelper::getValue($data, "txn_amount"),
             "txn_currency"           => JArrayHelper::getValue($data, "txn_currency"),
             "txn_status"             => JArrayHelper::getValue($data, "txn_status"),
             "txn_date"               => $date->toSql(),
-            "extra_data"             => JArrayHelper::getValue($data, "extra_data")
+            "extra_data"             => JArrayHelper::getValue($data, "extra_data"),
+            "service_provider"       => "Mollie iDEAL",
         ); 
         
         // Check User Id, Project ID and Transaction ID
-        if(!$transaction["investor_id"] OR !$transaction["project_id"] OR !$transaction["txn_id"]) {
-            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_TRANSACTION_DATA");
+        if(!$transaction["project_id"] OR !$transaction["txn_id"]) {
+            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+            $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_TRANSACTION_DATA");
             $error .= "\n". JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TRANSACTION_DATA", var_export($transaction, true));
             JLog::add($error);
             return null;
@@ -377,19 +382,25 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         return $transaction;
     }
     
+    /**
+     * Validate the reward and update the number of the distributed units.
+     * 
+     * @param  array $data
+     * @return null|CrowdFundingReward
+     */
     protected function updateReward(&$data) {
         
         jimport("crowdfunding.reward");
-        $reward = new CrowdFundingReward();
         $keys   = array(
-        	"id"         => $data["reward_id"], 
-        	"project_id" => $data["project_id"]
+        	"id"         => JArrayHelper::getValue($data, "reward_id"), 
+        	"project_id" => JArrayHelper::getValue($data, "project_id")
         );
-        $reward->load($keys);
+        $reward = new CrowdFundingReward($keys);
         
         // Check for valid reward
-        if(!$reward->id) {
-            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REWARD");
+        if(!$reward->getId()) {
+            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+            $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REWARD");
             $error .= "\n". JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TRANSACTION_DATA", var_export($data, true));
 			JLog::add($error);
 			
@@ -399,8 +410,9 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         
         // Check for valida amount between reward value and payed by user
         $txnAmount = JArrayHelper::getValue($data, "txn_amount");
-        if($txnAmount < $reward->amount) {
-            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REWARD_AMOUNT");
+        if($txnAmount < $reward->getAmount()) {
+            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+            $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REWARD_AMOUNT");
             $error .= "\n". JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TRANSACTION_DATA", var_export($data, true));
 			JLog::add($error);
 			
@@ -410,7 +422,8 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         
         // Verify the availability of rewards
         if($reward->isLimited() AND !$reward->getAvailable()) {
-            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_REWARD_NOT_AVAILABLE");
+            $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
+            $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_REWARD_NOT_AVAILABLE");
             $error .= "\n". JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TRANSACTION_DATA", var_export($data, true));
 			JLog::add($error);
 			
@@ -450,7 +463,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         // Check for existed transaction
         if(!empty($transaction->id)) {
             
-            // If the current status if completed,
+            // If the current status is completed,
             // stop the process.
             if(strcmp("completed", $transaction->txn_status) == 0) {
                 return false;
