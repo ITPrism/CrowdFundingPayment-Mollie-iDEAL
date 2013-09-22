@@ -6,8 +6,8 @@
     <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
     <authorEmail>todor@itprism.com</authorEmail>
     <authorUrl>http://itprism.com</authorUrl>
-    <version>1.1</version>
-    <creationDate>15 September, 2013</creationDate>
+    <version>1.2</version>
+    <creationDate>22 September, 2013</creationDate>
     <description>PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DESC</description>
     
     <languages  folder="language">
@@ -29,8 +29,8 @@
 			<fieldset name="basic">
 			
     	        <field name="partner_id" type="text" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PARTNER_ID" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PARTNER_ID_DESC" />
-    	        <field name="returnurl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL_DESC" class="span6" />
-    	        <field name="reporturl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL_DESC" class="span6" default="index.php?option=com_crowdfunding&amp;task=notifier.notify&amp;format=raw" />
+    	        <field name="returnurl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL_DESC" class="span6" size="80" />
+    	        <field name="reporturl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL_DESC" class="span6" size="80" default="index.php?option=com_crowdfunding&amp;task=notifier.notify&amp;format=raw" />
     	        <field name="spacer1" type="spacer" hr="true" />
     	        <field name="testmode" type="radio" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE_DESC" class="btn-group" default="1">
     	            <option value="0">JNO</option>
