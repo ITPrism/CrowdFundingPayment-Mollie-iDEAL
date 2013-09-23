@@ -57,7 +57,9 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $pluginURI = "plugins/crowdfundingpayment/mollieideal";
         
         // Load the script that initialize the select element with banks.
-        JHtml::_("jquery.framework");
+        if(version_compare(JVERSION, "3", ">=")) {
+            JHtml::_("jquery.framework");
+        }
         $doc->addScript($pluginURI."/js/plg_crowdfundingpayment_mollieideal.js");
         
         // Check for valid partner ID
