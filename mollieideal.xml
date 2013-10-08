@@ -6,8 +6,8 @@
     <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
     <authorEmail>todor@itprism.com</authorEmail>
     <authorUrl>http://itprism.com</authorUrl>
-    <version>1.3</version>
-    <creationDate>05 October, 2013</creationDate>
+    <version>1.4</version>
+    <creationDate>08 October, 2013</creationDate>
     <description>
 <![CDATA[
 <p>CrowdFunding Payment - Mollie iDEAL is a plugin that enables iDEAL payments via Mollie.</p>

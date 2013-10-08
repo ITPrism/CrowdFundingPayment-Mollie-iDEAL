@@ -230,7 +230,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             $projectId = JArrayHelper::getValue($validData, "project_id");
             
             $project   = CrowdFundingProject::getInstance($projectId);
-            if(!$project->id) {
+            if(!$project->getId()) {
                 $error  = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL")."\n";
                 $error .= JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_PROJECT");
                 $error .= "\n". JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TRANSACTION_DATA", var_export($validData, true));
@@ -239,7 +239,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             }
             
             // Set the receiver of funds
-            $validData["receiver_id"] = $project->user_id;
+            $validData["receiver_id"] = $project->getUserId();
             
             // Save transaction data.
             // If it is not completed, return empty results.
@@ -314,7 +314,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         if($this->params->get("send_admin_mail", 0)) {
         
             $subject = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_ADMIN_SUBJECT");
-            $body    = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_ADMIN_BODY", $project->title);
+            $body    = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_ADMIN_BODY", $project->getTitle());
             $return  = JFactory::getMailer()->sendMail($app->getCfg("mailfrom"), $app->getCfg("fromname"), $app->getCfg("mailfrom"), $subject, $body);
             
             // Check for an error.
@@ -328,13 +328,14 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         // Send email to the user
         if($this->params->get("send_user_mail", 0)) {
         
-            $amount   = $transaction->txn_amount.$transaction->txn_currency;
+            jimport("itprism.string");
+            $amount  = ITPrismString::getAmount($transaction->txn_amount, $transaction->txn_currency);
             
-            $user     = JUser::getInstance($project->user_id);
+            $user     = JUser::getInstance($project->getUserId());
             
              // Send email to the administrator
-            $subject = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_USER_SUBJECT", $project->title);
-            $body    = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_USER_BODY", $amount, $project->title );
+            $subject = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_USER_SUBJECT", $project->getTitle());
+            $body    = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_USER_BODY", $amount, $project->getTitle() );
             $return  = JFactory::getMailer()->sendMail($app->getCfg("mailfrom"), $app->getCfg("fromname"), $user->email, $subject, $body);
     		
     		// Check for an error.
@@ -463,11 +464,11 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $transaction = new CrowdFundingTransaction($keys);
         
         // Check for existed transaction
-        if(!empty($transaction->id)) {
+        if($transaction->getId()) {
             
             // If the current status is completed,
             // stop the process.
-            if(strcmp("completed", $transaction->txn_status) == 0) {
+            if($transaction->isCompleted()) {
                 return false;
             } 
             
@@ -490,7 +491,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         // stop the process. Only completed transaction will continue 
         // and will process the project, rewards,...
         $txnStatus = JArrayHelper::getValue($data, "txn_status");
-        if(strcmp("completed", $txnStatus) != 0) {
+        if(!$transaction->isCompleted()) {
             return false;
         }
         
