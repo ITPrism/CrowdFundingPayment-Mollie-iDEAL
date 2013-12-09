@@ -15,11 +15,12 @@ jQuery(document).ready(function() {
 				bank_id: bankId,
 				project_id: projectId,
 				reward_id: rewardId,
-				amount: amount
+				amount: amount,
+				payment_service: "mollieideal"
 			};
 			
 			jQuery.ajax({
-				url: "index.php?option=com_crowdfunding&task=payments.mollieideal&format=raw",
+				url: "index.php?option=com_crowdfunding&task=payments.preparePaymentAjax&format=raw",
 				type: "GET",
 				data: data,
 				dataType: "text json",

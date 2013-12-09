@@ -19,6 +19,25 @@ jimport('joomla.plugin.plugin');
  * @subpackage   Plugins
  */
 class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
+
+    protected   $log;
+    protected   $logFile = "plg_crowdfunding_mollieideal.php";
+    protected   $version = "1.6";
+    
+    public function __construct(&$subject, $config = array()) {
+    
+        parent::__construct($subject, $config);
+    
+        // Create log object
+        $file = JPath::clean(JFactory::getApplication()->getCfg("log_path") .DIRECTORY_SEPARATOR. $this->logFile);
+        
+        $this->log = new CrowdFundingLog();
+        $this->log->addWriter(new CrowdFundingLogWriterDatabase(JFactory::getDbo()));
+        $this->log->addWriter(new CrowdFundingLogWriterFile($file));
+    
+        // Load language
+        $this->loadLanguage();
+    }
     
     /**
      * This method prepares a payment gateway - buttons, forms,...
@@ -50,9 +69,6 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             return;
         }
         
-        // Load language
-        $this->loadLanguage();
-        
         // This is a URI path to the plugin folder
         $pluginURI = "plugins/crowdfundingpayment/mollieideal";
         
@@ -60,7 +76,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         if(version_compare(JVERSION, "3", ">=")) {
             JHtml::_("jquery.framework");
         }
-        $doc->addScript($pluginURI."/js/plg_crowdfundingpayment_mollieideal.js");
+        $doc->addScript($pluginURI."/js/plg_crowdfundingpayment_mollieideal.js?v=".urlencode($this->version));
         
         // Check for valid partner ID
         $partnerId = $this->params->get("partner_id");
@@ -87,12 +103,12 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $banks = $this->prepareBanks($banks);
         
         // DEBUG DATA
-        JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_BANKS"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $banks) : null;
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_BANKS"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $banks) : null;
         
         $selectBankOption = array(
             array(
-                    "text"  => JText::_("PLG_CROWDFUNDINGPAYMENT_SELECT_BANK"),
-                    "value" => ""
+                "text"  => JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SELECT_BANK"),
+                "value" => ""
             )
         );
         $banks = array_merge($selectBankOption, $banks);
@@ -145,9 +161,6 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             return;
         }
         
-        // Load language
-        $this->loadLanguage();
-        
         // Get transaction ID
         $transactionId    = $app->input->get("transaction_id");
         if(!$transactionId) {
@@ -162,7 +175,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $intention = new CrowdFundingIntention($keys);
         
         // DEBUG DATA
-        JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_INTENTION"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $intention->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_INTENTION"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $intention->getProperties()) : null;
         
         // Verify gateway. 
         if(!$this->isMollieIdealGateway($intention)) {
@@ -173,7 +186,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $requestMethod = $app->input->getMethod();
         if(strcmp("GET", $requestMethod) != 0) {
             
-            CrowdFundingLog::add(
+            $this->log->add(
                 JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REQUEST_METHOD"),
                 "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR",
                 JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_TRANSACTION_REQUEST_METHOD", $requestMethod)
@@ -204,7 +217,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $paymentGateway->checkPayment($transactionId);
         
         // DEBUG DATA
-        JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_PAYMENT_GATEWAY_OBJECT"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $paymentGateway) : null;
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_PAYMENT_GATEWAY_OBJECT"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $paymentGateway) : null;
         
         if($paymentGateway->getPaidStatus()) {
             
@@ -240,7 +253,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             }
             
             // DEBUG DATA
-            JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_TRANSACTION_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $validData) : null;
+            JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_TRANSACTION_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $validData) : null;
             
             // Get project
             jimport("crowdfunding.project");
@@ -248,13 +261,13 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             $project   = CrowdFundingProject::getInstance($projectId);
             
             // DEBUG DATA
-            JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_PROJECT_OBJECT"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $project->getProperties()) : null;
+            JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_PROJECT_OBJECT"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $project->getProperties()) : null;
             
             // Check for valid project
             if(!$project->getId()) {
                 
                 // Log data in the database
-                CrowdFundingLog::add(
+                $this->log->add(
                     JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_PROJECT"),
                     "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR",
                     $validData
@@ -295,7 +308,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             }
             
             // DEBUG DATA
-            JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RESULT_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $result) : null;
+            JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RESULT_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $result) : null;
             
             // Remove intention
             $intention->delete();
@@ -338,47 +351,154 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
             return;
         }
         
-        // Send email to the administrator
-        if($this->params->get("send_admin_mail", 0)) {
+        // Send mails
+        $this->sendMails($project, $transaction);
         
-            $subject = JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_ADMIN_SUBJECT");
-            $body    = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_ADMIN_BODY", $project->title);
-            $return  = JFactory::getMailer()->sendMail($app->getCfg("mailfrom"), $app->getCfg("fromname"), $app->getCfg("mailfrom"), $subject, $body);
-            
-            // Check for an error.
-            if ($return !== true) {
-                // Log error
-                CrowdFundingLog::add(
-                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN"),
-                    "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
-                );
-            }
+    }
+    
+    public function onContentPreparePayment($context, $params) {
+    
+        $app = JFactory::getApplication();
+        /** @var $app JSite **/
+    
+        if($app->isAdmin()) {
+            return;
+        }
+    
+        $doc     = JFactory::getDocument();
+        /**  @var $doc JDocumentHtml **/
+    
+        // Check document type
+        $docType = $doc->getType();
+        if(strcmp("raw", $docType) != 0){
+            return;
+        }
+
+        if(strcmp("com_crowdfunding.preparepayment.mollieideal", $context) != 0){
+            return;
+        }
+    
+        $partnerId = $this->params->get("partner_id");
+        
+        $projectId = $app->input->getInt("project_id");
+        $bankId    = $app->input->getAlnum("bank_id");
+        $amount    = $app->input->get("amount", 0, "float");
+        
+        $uri        = JUri::getInstance();
+        $domain     = $uri->toString(array("host"));
+        
+        $paymentOptions = array(
+            "bank_id"      => $bankId,
+            "amount"       => $amount * 100,
+            "description"  => "",
+            "return_url"   => "",
+            "report_url"   => "",
+        );
+    
+        jimport("itprism.payment.mollie.ideal");
+        $paymentGateway = new ITPrismPaymentMollieIdeal($partnerId);
+        
+        // Enable test mode
+        if($this->params->get('testmode', 1)) {
+            $paymentGateway->enableTestmode();
         }
         
-        // Send email to the user
-        if($this->params->get("send_user_mail", 0)) {
+        // Get project
+        jimport("crowdfunding.project");
+        $project    = new CrowdFundingProject($projectId);
         
-            jimport("itprism.string");
-            $amount  = ITPrismString::getAmount($transaction->txn_amount, $transaction->txn_currency);
-            
-            $user     = JUser::getInstance($project->user_id);
-            
-             // Send email to the administrator
-            $subject = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_USER_SUBJECT", $project->title);
-            $body    = JText::sprintf("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NEW_INVESTMENT_USER_BODY", $amount, $project->title);
-            $return  = JFactory::getMailer()->sendMail($app->getCfg("mailfrom"), $app->getCfg("fromname"), $user->email, $subject, $body);
-    		
-    		// Check for an error.
-    		if ($return !== true) {
-    		    // Log error
-    		    CrowdFundingLog::add(
-		            JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_USER"),
-		            "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
-    		    );
-    		}
-    		
+        if(!$project->getId()) {
+            $response = array(
+                "success" => false,
+                "title"   => JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_FAIL"),
+                "text"    => JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_PROJECT")
+            );
+        
+            return $response;
         }
         
+        // Prepare description
+        $paymentOptions["description"] = JString::substr($project->getTitle(), 0, 29);
+        
+        // Prepare return URL
+        $returnUrl = JString::trim($this->params->get('returnurl'));
+        if(!$returnUrl) {
+            $returnUrl = $uri->toString(array("scheme", "host")).JRoute::_(CrowdFundingHelperRoute::getBackingRoute($project->getSlug(), $project->getCatslug(), "share"), false);
+        }
+        $paymentOptions["return_url"] = $returnUrl;
+        
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RETURN_URL"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $returnUrl) : null;
+        
+        // Prepare report URL
+        $reportUrl  = JString::trim($this->params->get('reporturl'));
+        if( false == strpos($reportUrl, $domain) ) {
+            $reportUrl = JUri::root().$reportUrl;
+        }
+        $paymentOptions["report_url"] = $reportUrl;
+        
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_REPORT_URL"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $reportUrl) : null;
+        
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_PAYMENT_OPTIONS"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $paymentOptions) : null;
+        
+        $paymentGateway->createPayment($paymentOptions);
+        
+        $url   = $paymentGateway->getBankURL();
+        $txnId = $paymentGateway->getTransactionId();
+        
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_PAYMENT_GATEWAY_OBJECT"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $paymentGateway) : null;
+        
+        //  INTENTIONS
+        
+        // Prepare custom data
+        
+        $rewardId     = $app->input->get("reward_id");
+        $userId       = JFactory::getUser()->id;
+        $aUserId      = $app->getUserState("auser_id");
+        
+        $intention    = CrowdFundingHelper::getIntention($userId, $aUserId, $projectId);
+        
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_INTENTION"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $intention->getProperties()) : null;
+        
+        // Prepare intention data.
+        $intentionData = array(
+            "txn_id"        => $txnId,
+            "gateway"       => "Mollie iDEAL",
+        );
+        
+        // Set main data if it is a new intention.
+        if(!$intention->getId()) {
+        
+            $recordDate = new JDate();
+        
+            $intentionData["user_id"]     = $userId;
+            $intentionData["auser_id"]    = $aUserId; // This is hash user ID used for anonymous users.
+            $intentionData["project_id"]  = $projectId;
+            $intentionData["reward_id"]   = $rewardId;
+            $intentionData["record_date"] = $recordDate->toSql();
+        
+        }
+        
+        $intention->bind($intentionData);
+        $intention->store();
+        
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_INTENTION_AS"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $intention->getProperties()) : null;
+        
+        // Return response
+        $response = array(
+            "success" => true,
+            "title"   => JText::_('PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SUCCESS'),
+            "data"    => array(
+                "url" => $url
+            )
+        );
+    
+        return $response;
     }
     
 	/**
@@ -408,7 +528,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         // Check User Id, Project ID and Transaction ID
         if(!$transaction["project_id"] OR !$transaction["txn_id"]) {
             // Log data in the database
-            CrowdFundingLog::add(
+            $this->log->add(
                 JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_TRANSACTION_DATA"),
                 "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR",
                 $transaction
@@ -436,13 +556,13 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $reward = new CrowdFundingReward($keys);
         
         // DEBUG DATA
-        JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RESULT_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $reward->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RESULT_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $reward->getProperties()) : null;
         
         // Check for valid reward
         if(!$reward->getId()) {
             
             // Log data in the database
-            CrowdFundingLog::add(
+            $this->log->add(
                 JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REWARD"),
                 "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR",
                 array("data" => $data, "reward object" => $reward->getProperties())
@@ -457,7 +577,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         if($txnAmount < $reward->getAmount()) {
             
             // Log data in the database
-            CrowdFundingLog::add(
+            $this->log->add(
                 JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_INVALID_REWARD_AMOUNT"),
                 "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR",
                 array("data" => $data, "reward object" => $reward->getProperties())
@@ -472,7 +592,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         if($reward->isLimited() AND !$reward->getAvailable()) {
             
             // Log data in the database
-            CrowdFundingLog::add(
+            $this->log->add(
                 JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_REWARD_NOT_AVAILABLE"),
                 "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR",
                 array("data" => $data, "reward object" => $reward->getProperties())
@@ -500,7 +620,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
      * 
      * @return boolean TRUE on success. FALSE on failure.
      */
-    public function storeTransaction($data, $project) {
+    protected function storeTransaction($data, $project) {
         
         // Get transaction by txn ID
         jimport("crowdfunding.transaction");
@@ -510,7 +630,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         $transaction = new CrowdFundingTransaction($keys);
         
         // DEBUG DATA
-        JDEBUG ? CrowdFundingLog::add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RESULT_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $transaction->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_DEBUG_RESULT_DATA"), "MOLLIEIDEAL_PAYMENT_PLUGIN_DEBUG", $transaction->getProperties()) : null;
         
         // Check for valid transaction
         if($transaction->getId()) {
@@ -559,7 +679,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
      * @param CrowdFundingIntention $intention
      * @return boolean
      */
-    private function isMollieIdealGateway($intention) {
+    protected function isMollieIdealGateway($intention) {
         
         $gateway = $intention->getGateway();
         
@@ -576,7 +696,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
      * @param array $data
      * @return multitype:multitype:unknown
      */
-    private function prepareBanks($data) {
+    protected function prepareBanks($data) {
         
         $banks = array();
         foreach($data as $key => $name) {
@@ -587,6 +707,187 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
         }
         
         return $banks;
+    }
+    
+    protected function sendMails($project, $transaction) {
+    
+        $app = JFactory::getApplication();
+        /** @var $app JSite **/
+    
+        // Get website
+        $uri     = JUri::getInstance();
+        $website = $uri->toString(array("scheme", "host"));
+    
+        jimport("itprism.string");
+        jimport("crowdfunding.email");
+    
+        $emailMode  = $this->params->get("email_mode", "plain");
+    
+        // Prepare data for parsing
+        $data = array(
+            "site_name"         => $app->getCfg("sitename"),
+            "site_url"          => JUri::root(),
+            "item_title"        => $project->title,
+            "item_url"          => $website.JRoute::_(CrowdFundingHelperRoute::getDetailsRoute($project->slug, $project->catslug)),
+            "amount"            => ITPrismString::getAmount($transaction->txn_amount, $transaction->txn_currency),
+            "transaction_id"    => $transaction->txn_id
+        );
+    
+        // Send mail to the administrator
+        $emailId = $this->params->get("admin_mail_id", 0);
+        if(!empty($emailId)) {
+    
+            $table    = new CrowdFundingTableEmail(JFactory::getDbo());
+            $email    = new CrowdFundingEmail();
+            $email->setTable($table);
+            $email->load($emailId);
+    
+            if(!$email->getSenderName()) {
+                $email->setSenderName($app->getCfg("fromname"));
+            }
+            if(!$email->getSenderEmail()) {
+                $email->setSenderEmail($app->getCfg("mailfrom"));
+            }
+    
+            $recipientName = $email->getSenderName();
+            $recipientMail = $email->getSenderEmail();
+    
+            // Prepare data for parsing
+            $data["sender_name"]     =  $email->getSenderName();
+            $data["sender_email"]    =  $email->getSenderEmail();
+            $data["recipient_name"]  =  $recipientName;
+            $data["recipient_email"] =  $recipientMail;
+    
+            $email->parse($data);
+            $subject    = $email->getSubject();
+            $body       = $email->getBody($emailMode);
+    
+            $mailer  = JFactory::getMailer();
+            if(strcmp("html", $emailMode) == 0) { // Send as HTML message
+                $return  = $mailer->sendMail($email->getSenderEmail(), $email->getSenderName(), $recipientMail, $subject, $body, CrowdFundingEmail::MAIL_MODE_HTML);
+    
+            } else { // Send as plain text.
+                $return  = $mailer->sendMail($email->getSenderEmail(), $email->getSenderName(), $recipientMail, $subject, $body, CrowdFundingEmail::MAIL_MODE_PLAIN);
+    
+            }
+    
+            // Check for an error.
+            if ($return !== true) {
+    
+                // Log error
+                $this->log->add(
+                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN"),
+                    "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
+                );
+    
+            }
+    
+        }
+    
+        // Send mail to project owner
+        $emailId = $this->params->get("creator_mail_id", 0);
+        if(!empty($emailId)) {
+    
+            $table    = new CrowdFundingTableEmail(JFactory::getDbo());
+            $email    = new CrowdFundingEmail();
+            $email->setTable($table);
+            $email->load($emailId);
+    
+            if(!$email->getSenderName()) {
+                $email->setSenderName($app->getCfg("fromname"));
+            }
+            if(!$email->getSenderEmail()) {
+                $email->setSenderEmail($app->getCfg("mailfrom"));
+            }
+    
+            $user          = JFactory::getUser($transaction->receiver_id);
+            $recipientName = $user->get("name");
+            $recipientMail = $user->get("email");
+    
+            // Prepare data for parsing
+            $data["sender_name"]     =  $email->getSenderName();
+            $data["sender_email"]    =  $email->getSenderEmail();
+            $data["recipient_name"]  =  $recipientName;
+            $data["recipient_email"] =  $recipientMail;
+    
+            $email->parse($data);
+            $subject    = $email->getSubject();
+            $body       = $email->getBody($emailMode);
+    
+            $mailer  = JFactory::getMailer();
+            if(strcmp("html", $emailMode) == 0) { // Send as HTML message
+                $return  = $mailer->sendMail($email->getSenderEmail(), $email->getSenderName(), $recipientMail, $subject, $body, CrowdFundingEmail::MAIL_MODE_HTML);
+    
+            } else { // Send as plain text.
+                $return  = $mailer->sendMail($email->getSenderEmail(), $email->getSenderName(), $recipientMail, $subject, $body, CrowdFundingEmail::MAIL_MODE_PLAIN);
+    
+            }
+    
+            // Check for an error.
+            if ($return !== true) {
+    
+                // Log error
+                $this->log->add(
+                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN"),
+                    "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
+                );
+    
+            }
+        }
+    
+        // Send mail to backer
+        $emailId    = $this->params->get("user_mail_id", 0);
+        $investorId = $transaction->investor_id;
+        if(!empty($emailId) AND !empty($investorId)) {
+    
+            $table    = new CrowdFundingTableEmail(JFactory::getDbo());
+            $email    = new CrowdFundingEmail();
+            $email->setTable($table);
+            $email->load($emailId);
+    
+            if(!$email->getSenderName()) {
+                $email->setSenderName($app->getCfg("fromname"));
+            }
+            if(!$email->getSenderEmail()) {
+                $email->setSenderEmail($app->getCfg("mailfrom"));
+            }
+    
+            $user          = JFactory::getUser($investorId);
+            $recipientName = $user->get("name");
+            $recipientMail = $user->get("email");
+    
+            // Prepare data for parsing
+            $data["sender_name"]     =  $email->getSenderName();
+            $data["sender_email"]    =  $email->getSenderEmail();
+            $data["recipient_name"]  =  $recipientName;
+            $data["recipient_email"] =  $recipientMail;
+    
+            $email->parse($data);
+            $subject    = $email->getSubject();
+            $body       = $email->getBody($emailMode);
+    
+            $mailer  = JFactory::getMailer();
+            if(strcmp("html", $emailMode) == 0) { // Send as HTML message
+                $return  = $mailer->sendMail($email->getSenderEmail(), $email->getSenderName(), $recipientMail, $subject, $body, CrowdFundingEmail::MAIL_MODE_HTML);
+    
+            } else { // Send as plain text.
+                $return  = $mailer->sendMail($email->getSenderEmail(), $email->getSenderName(), $recipientMail, $subject, $body, CrowdFundingEmail::MAIL_MODE_PLAIN);
+    
+            }
+    
+            // Check for an error.
+            if ($return !== true) {
+    
+                // Log error
+                $this->log->add(
+                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN"),
+                    "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
+                );
+    
+            }
+    
+        }
+    
     }
     
 }
