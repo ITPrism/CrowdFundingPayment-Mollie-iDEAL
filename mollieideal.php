@@ -828,7 +828,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
     
                 // Log error
                 $this->log->add(
-                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN"),
+                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_PROJECT_OWNER"),
                     "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
                 );
     
@@ -880,7 +880,7 @@ class plgCrowdFundingPaymentMollieIdeal extends JPlugin {
     
                 // Log error
                 $this->log->add(
-                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_ADMIN"),
+                    JText::_("PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ERROR_MAIL_SENDING_USER"),
                     "MOLLIEIDEAL_PAYMENT_PLUGIN_ERROR"
                 );
     
