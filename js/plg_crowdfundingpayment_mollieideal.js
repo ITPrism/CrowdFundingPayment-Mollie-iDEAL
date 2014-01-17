@@ -13,7 +13,7 @@ jQuery(document).ready(function() {
 			
 			var data = {
 				bank_id: bankId,
-				project_id: projectId,
+				pid: projectId,
 				reward_id: rewardId,
 				amount: amount,
 				payment_service: "mollieideal"
