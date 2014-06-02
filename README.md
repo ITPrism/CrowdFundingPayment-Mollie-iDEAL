@@ -1,12 +1,15 @@
 CrowdFunding Payment - Mollie iDEAL
 ==========================
-( Version 1.7 )
+( Version 1.8 )
 - - -
 
 This is a payment plugin for the CrowdFunding platform, which provides an ability to make iDEAL payments via Mollie.
 
 Changelog
 ---------
+
+###v1.8
+* Improved
 
 ###v1.7
 * Improved

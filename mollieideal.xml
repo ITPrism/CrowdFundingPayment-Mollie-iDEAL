@@ -6,8 +6,8 @@
     <license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
     <authorEmail>todor@itprism.com</authorEmail>
     <authorUrl>http://itprism.com</authorUrl>
-    <version>1.7</version>
-    <creationDate>17 January, 2014</creationDate>
+    <version>1.8</version>
+    <creationDate>31 May, 2014</creationDate>
     <description><![CDATA[
     <p>CrowdFunding Payment - Mollie iDEAL is a plugin that enables iDEAL payments via Mollie.</p>
     <p>Invest in the extension and help for its improvement. You can <a href="http://itprism.com/sponsorship" target="_blank">sponsor the extension via SMS, PayPal or Bitcoin</a>.</p>
@@ -29,29 +29,28 @@
     <config>
 		<fields name="params">
 			<fieldset name="basic" addfieldpath="/administrator/components/com_crowdfunding/models/fields">
-			
     	        <field name="partner_id" type="text" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PARTNER_ID" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PARTNER_ID_DESC" />
     	        <field name="returnurl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL_DESC" class="span6" size="80" />
     	        <field name="reporturl" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL_DESC" class="span6" size="80" default="index.php?option=com_crowdfunding&amp;task=notifier.notify&amp;format=raw&amp;payment_service=mollieideal" />
-    	        <field name="spacer1" type="spacer" hr="true" />
-    	        <field name="testmode" type="radio" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE_DESC" class="btn-group" default="1">
-    	            <option value="0">JNO</option>
-    	            <option value="1">JYES</option>
-    	        </field>
-                
-                <field name="spacer2" type="spacer" hr="true" />
-                <field name="spacer2" type="spacer" hr="true" />
+			</fieldset>
+
+            <fieldset name="sandbox" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE">
+                <field name="testmode" type="radio" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_ENABLE_TESTMODE" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE_DESC" class="btn-group" default="1">
+                    <option value="0">JNO</option>
+                    <option value="1">JYES</option>
+                </field>
+            </fieldset>
+            
+            <fieldset name="emails" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFICATION_EMAILS">
                 <field name="admin_mail_id" type="cfemails" default="0" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_ADMIN" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_ADMIN_DESC" class="btn-group" />
                 <field name="creator_mail_id" type="cfemails" default="0" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_CREATOR" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_CREATOR_DESC" class="btn-group" />
                 <field name="user_mail_id" type="cfemails" default="0" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_USER" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_SEND_MAIL_USER_DESC" class="btn-group" />
-                
+
                 <field name="email_mode" type="list" default="html" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_EMAIL_MODE" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_EMAIL_MODE_DESC" >
-                   <option value="plain">PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PLAIN</option>
-                   <option value="html">PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_HTML</option>
+                    <option value="plain">PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_PLAIN</option>
+                    <option value="html">PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_HTML</option>
                 </field>
-                
-			</fieldset>
-	            
+            </fieldset>
         </fields>
 	</config>
 </extension>
