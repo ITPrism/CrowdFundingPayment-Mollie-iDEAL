@@ -20,7 +20,7 @@ jimport('crowdfunding.payment.plugin');
  */
 class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 {
-    protected $version = "1.8";
+    protected $version = "1.9";
     protected $paymentService = "mollieideal";
 
     protected $textPrefix = "PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL";
@@ -128,7 +128,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
      *
      * @return array|null
      */
-    public function onPaymenNotify($context, $params)
+    public function onPaymentNotify($context, $params)
     {
         if (strcmp("com_crowdfunding.notify.mollieideal", $context) != 0) {
             return null;
@@ -142,7 +142,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
         }
 
         $doc = JFactory::getDocument();
-        /**  @var $doc JDocumentHtml * */
+        /**  @var $doc JDocumentHtml */
 
         // Check document type
         $docType = $doc->getType();
@@ -158,7 +158,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 
         // Get intention data
         $keys = array(
-            "txn_id" => $transactionId
+            "unique_key" => $transactionId
         );
         jimport("crowdfunding.intention");
         $intention = new CrowdFundingIntention(JFactory::getDbo());
@@ -193,6 +193,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
             "project"         => null,
             "reward"          => null,
             "transaction"     => null,
+            "payment_session" => null,
             "payment_service" => "Mollie iDEAL"
         );
 
@@ -302,6 +303,10 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
                 $properties       = $reward->getProperties();
                 $result["reward"] = JArrayHelper::toObject($properties);
             }
+
+            // Generate data object, based on the intention properties.
+            $properties       = $intention->getProperties();
+            $result["payment_session"] = JArrayHelper::toObject($properties);
 
             // DEBUG DATA
             JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_RESULT_DATA"), $this->debugType, $result) : null;
@@ -463,7 +468,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 
         // Prepare intention data.
         $intentionData = array(
-            "txn_id"  => $txnId,
+            "unique_key"  => $txnId,
             "gateway" => "Mollie iDEAL",
         );
 
