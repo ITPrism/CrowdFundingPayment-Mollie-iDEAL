@@ -4,8 +4,9 @@ jQuery(document).ready(function() {
 		event.preventDefault();
 		
 		var bankId    = jQuery(this).val();
+		console.log(bankId);
 		
-		if(bankId > 0) {
+		if(bankId) {
 			
 			var projectId = jQuery(this).data("project-id");
 			var rewardId  = jQuery(this).data("reward-id");
