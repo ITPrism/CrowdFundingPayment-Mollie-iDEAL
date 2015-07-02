@@ -1,6 +1,6 @@
 <?php
 /**
- * @package      CrowdFunding
+ * @package      Crowdfunding
  * @subpackage   Plugins
  * @author       Todor Iliev
  * @copyright    Copyright (C) 2015 Todor Iliev <todor@itprism.com>. All rights reserved.
@@ -10,17 +10,19 @@
 // no direct access
 defined('_JEXEC') or die;
 
-jimport('crowdfunding.payment.plugin');
+jimport("Prism.init");
+jimport("Crowdfunding.init");
+jimport("EmailTemplates.init");
 
 /**
- * CrowdFunding Mollie iDEAL Payment Plugin
+ * Crowdfunding Mollie iDEAL Payment Plugin
  *
- * @package      CrowdFunding
+ * @package      Crowdfunding
  * @subpackage   Plugins
  */
-class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
+class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
 {
-    protected $version = "1.10";
+    protected $version = "2.0";
     protected $paymentService = "mollieideal";
 
     protected $textPrefix   = "PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL";
@@ -77,13 +79,13 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
         $html[] = '<p>' . JText::_($this->textPrefix . "_INFO") . '</p>';
 
         if (!$apiKey) {
-            $html[] = '<div class="alert">' . JText::_($this->textPrefix . "_ERROR_PLUGIN_NOT_CONFIGURED") . '</div>';
+            $html[] = '<div class="bg-warning p-10-5"><span class="glyphicon glyphicon-warning-sign"></span> ' . JText::_($this->textPrefix . "_ERROR_PLUGIN_NOT_CONFIGURED") . '</div>';
             $html[] = '</div>'; // Close "well".
             return implode("\n", $html);
         }
 
         // Register Mollie classes.
-        jimport("itprism.payment.mollie.init");
+        jimport("Prism.Payment.Mollie.init");
 
         $mollie = new Mollie_API_Client;
         $mollie->setApiKey($apiKey);
@@ -107,14 +109,13 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
         $html[] = JHtml::_("select.options", $banks);
         $html[] = '</select>';
 
-        $html[] = '<div class="alert hide" id="js-mollie-ideal-alert"></div>';
+        $html[] = '<div class="bg-warning m-10" id="js-mollie-ideal-alert" style="display: none;"></div>';
 
-        $html[] = '<div class="clearfix"></div>';
         $html[] = '<img src="media/com_crowdfunding/images/ajax-loader.gif" width="16" height="16" id="js-mollie-ajax-loading" style="display: none;" />';
-        $html[] = '<a href="#" class="btn btn-primary" id="js-continue-mollie" style="display: none;">' . JText::_($this->textPrefix . "_CONTINUE_TO_MOLLIE") . '</a>';
+        $html[] = '<a href="#" class="btn btn-primary mtb-10" id="js-continue-mollie" style="display: none;"><span class="glyphicon glyphicon-chevron-right"></span> ' . JText::_($this->textPrefix . "_CONTINUE_TO_MOLLIE") . '</a>';
 
         if ($this->params->get('testmode', 1)) {
-            $html[] = '<p class="alert alert-info"><i class="icon-info-sign"></i>' . JText::_($this->textPrefix . "_WORKS_TESTMODE") . '</p>';
+            $html[] = '<p class="bg-info p-10-5 mt-5"><span class="glyphicon glyphicon-info-sign"></span> ' . JText::_($this->textPrefix . "_WORKS_TESTMODE") . '</p>';
         }
 
         $html[] = '</div>'; // Close "well".
@@ -174,19 +175,17 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
             return null;
         }
 
-        // Get intention data
+        // Get payment session data
         $keys = array(
             "unique_key" => $transactionId
         );
-        jimport("crowdfunding.intention");
-        $intention = new CrowdFundingIntention(JFactory::getDbo());
-        $intention->load($keys);
+        $paymentSession = $this->getPaymentSession($keys);
 
         // DEBUG DATA
-        JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_INTENTION"), $this->debugType, $intention->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_PAYMENT_SESSION"), $this->debugType, $paymentSession->getProperties()) : null;
 
         // Verify the gateway.
-        $gateway = $intention->getGateway();
+        $gateway = $paymentSession->getGateway();
         if (!$this->isValidPaymentGateway($gateway)) {
             return null;
         }
@@ -204,7 +203,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
         );
 
         // Register Mollie classes.
-        jimport("itprism.payment.mollie.init");
+        jimport("Prism.Payment.Mollie.init");
 
         $mollie = new Mollie_API_Client;
         $mollie->setApiKey($apiKey);
@@ -217,17 +216,15 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
         if ($payment->id) {
 
             // Get currency
-            jimport("crowdfunding.currency");
-            $currencyId = $params->get("project_currency");
-            $currency   = CrowdFundingCurrency::getInstance(JFactory::getDbo(), $currencyId);
+            $currency   = Crowdfunding\Currency::getInstance(JFactory::getDbo(), $params->get("project_currency"));
 
             // Prepare the transaction data that will be validated.
             $transactionData = array(
-                "txn_currency" => $currency->getAbbr(),
+                "txn_currency" => $currency->getCode(),
                 "txn_amount"   => $payment->amount,
-                "project_id"   => $intention->getProjectId(),
-                "user_id"      => $intention->getUserId(),
-                "reward_id"    => ($intention->isAnonymous()) ? 0 : $intention->getRewardId(), // Set reward ID to 0 because anonymous users cannot sellect reward.
+                "project_id"   => $paymentSession->getProjectId(),
+                "user_id"      => $paymentSession->getUserId(),
+                "reward_id"    => ($paymentSession->isAnonymous()) ? 0 : $paymentSession->getRewardId(), // Set reward ID to 0 because anonymous users cannot sellect reward.
                 "txn_id"       => $payment->id
             );
 
@@ -262,9 +259,8 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
             JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_TRANSACTION_DATA"), $this->debugType, $validData) : null;
 
             // Get project
-            jimport("crowdfunding.project");
-            $projectId = JArrayHelper::getValue($validData, "project_id");
-            $project   = CrowdFundingProject::getInstance(JFactory::getDbo(), $projectId);
+            $projectId = Joomla\Utilities\ArrayHelper::getValue($validData, "project_id");
+            $project   = Crowdfunding\Project::getInstance(JFactory::getDbo(), $projectId);
 
             // DEBUG DATA
             JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_PROJECT_OBJECT"), $this->debugType, $project->getProperties()) : null;
@@ -294,7 +290,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
             }
 
             // Update the number of distributed reward.
-            $rewardId = JArrayHelper::getValue($transactionData, "reward_id");
+            $rewardId = Joomla\Utilities\ArrayHelper::getValue($transactionData, "reward_id");
             $reward   = null;
             if (!empty($rewardId)) {
                 $reward = $this->updateReward($transactionData);
@@ -307,29 +303,28 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 
             //  Prepare the data that will be returned
 
-            $result["transaction"] = JArrayHelper::toObject($transactionData);
+            $result["transaction"] = Joomla\Utilities\ArrayHelper::toObject($transactionData);
 
             // Generate object of data based on the project properties
             $properties        = $project->getProperties();
-            $result["project"] = JArrayHelper::toObject($properties);
+            $result["project"] = Joomla\Utilities\ArrayHelper::toObject($properties);
 
             // Generate object of data based on the reward properties
             if (!empty($reward)) {
                 $properties       = $reward->getProperties();
-                $result["reward"] = JArrayHelper::toObject($properties);
+                $result["reward"] = Joomla\Utilities\ArrayHelper::toObject($properties);
             }
 
-            // Generate data object, based on the intention properties.
-            $properties       = $intention->getProperties();
-            $result["payment_session"] = JArrayHelper::toObject($properties);
+            // Generate data object, based on the payment session properties.
+            $properties       = $paymentSession->getProperties();
+            $result["payment_session"] = Joomla\Utilities\ArrayHelper::toObject($properties);
 
             // DEBUG DATA
             JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_RESULT_DATA"), $this->debugType, $result) : null;
 
-            // Remove intention
-            $intention->delete();
-            unset($intention);
-
+            // Remove payment session
+            $txnStatus = (isset($result["transaction"]->txn_status)) ? $result["transaction"]->txn_status : null;
+            $this->closePaymentSession($paymentSession, $txnStatus);
         }
 
         return $result;
@@ -409,8 +404,7 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
         $userId    = JFactory::getUser()->get("id");
 
         // Get project
-        jimport("crowdfunding.project");
-        $project = new CrowdFundingProject(JFactory::getDbo());
+        $project = new Crowdfunding\Project(JFactory::getDbo());
         $project->load($projectId);
 
         if (!$project->getId()) {
@@ -423,34 +417,35 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
             return $response;
         }
 
-        //  INTENTIONS
+        //  PAYMENT SESSION
 
-        $intention = $this->getIntention(array(
-            "user_id"    => $userId,
-            "auser_id"   => $aUserId,
-            "project_id" => $projectId
+        $paymentSessionContext    = Crowdfunding\Constants::PAYMENT_SESSION_CONTEXT . $project->getId();
+        $paymentSessionLocal      = $this->app->getUserState($paymentSessionContext);
+
+        $paymentSession = $this->getPaymentSession(array(
+            "session_id"    => $paymentSessionLocal->session_id
         ));
 
-        // Set main data if it is a new intention.
-        if (!$intention->getId()) {
+        // Set main data if it is a new payment session.
+        if (!$paymentSession->getId()) {
 
             $recordDate = new JDate();
 
-            $intentionData["user_id"]     = $userId;
-            $intentionData["auser_id"]    = $aUserId; // This is hash user ID used for anonymous users.
-            $intentionData["project_id"]  = $projectId;
-            $intentionData["reward_id"]   = $rewardId;
-            $intentionData["record_date"] = $recordDate->toSql();
+            $paymentSessionData["user_id"]     = $userId;
+            $paymentSessionData["auser_id"]    = $aUserId; // This is hash user ID used for anonymous users.
+            $paymentSessionData["project_id"]  = $projectId;
+            $paymentSessionData["reward_id"]   = $rewardId;
+            $paymentSessionData["record_date"] = $recordDate->toSql();
 
-            $intention->bind($intentionData);
+            $paymentSession->bind($paymentSessionData);
         }
 
         // Set the gateway.
-        $intention->setGateway($this->paymentService);
-        $intention->store();
+        $paymentSession->setGateway($this->paymentService);
+        $paymentSession->store();
 
         // DEBUG DATA
-        JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_INTENTION"), $this->debugType, $intention->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_PAYMENT_SESSION"), $this->debugType, $paymentSession->getProperties()) : null;
 
         // Prepare URLs
         $returnUrl   = $this->getReturnUrl($project->getSlug(), $project->getCatSlug());
@@ -465,20 +460,20 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 
         $paymentOptions = array(
             "amount"      => (float)$amount,
-            "description" => JString::substr($project->getTitle(), 0, 32),
+            "description" => Joomla\String\String::substr($project->getTitle(), 0, 32),
             "redirectUrl" => $returnUrl,
             "webhookUrl"  => $callbackUrl,
             "issuer"      => $bankId,
             "method"      => "ideal",
             "metadata"    => array(
-                "intention_id" => $intention->getId()
+                "payment_session_id" => $paymentSession->getId()
             )
         );
 
         // DEBUG DATA
         JDEBUG ? $this->log->add(JText::_($this->textPrefix . "_DEBUG_PAYMENT_OPTIONS"), $this->debugType, $paymentOptions) : null;
 
-        jimport("itprism.payment.mollie.init");
+        jimport("Prism.Payment.Mollie.init");
         $paymentGateway = new Mollie_API_Client;
         $paymentGateway->setApiKey($apiKey);
 
@@ -492,8 +487,8 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
             $url   = $payment->getPaymentUrl();
 
             // Store the ID.
-            $intention->setUniqueKey($payment->id);
-            $intention->storeUniqueKey();
+            $paymentSession->setUniqueKey($payment->id);
+            $paymentSession->storeUniqueKey();
 
         } catch (Mollie_API_Exception $e) {
 
@@ -533,15 +528,15 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 
         // Prepare transaction data
         $transaction = array(
-            "investor_id"      => JArrayHelper::getValue($data, "user_id", 0, "int"),
-            "project_id"       => JArrayHelper::getValue($data, "project_id", 0, "int"),
-            "reward_id"        => JArrayHelper::getValue($data, "reward_id", 0, "int"),
-            "txn_id"           => JArrayHelper::getValue($data, "txn_id"),
-            "txn_amount"       => JArrayHelper::getValue($data, "txn_amount"),
-            "txn_currency"     => JArrayHelper::getValue($data, "txn_currency"),
-            "txn_status"       => JArrayHelper::getValue($data, "txn_status"),
+            "investor_id"      => Joomla\Utilities\ArrayHelper::getValue($data, "user_id", 0, "int"),
+            "project_id"       => Joomla\Utilities\ArrayHelper::getValue($data, "project_id", 0, "int"),
+            "reward_id"        => Joomla\Utilities\ArrayHelper::getValue($data, "reward_id", 0, "int"),
+            "txn_id"           => Joomla\Utilities\ArrayHelper::getValue($data, "txn_id"),
+            "txn_amount"       => Joomla\Utilities\ArrayHelper::getValue($data, "txn_amount"),
+            "txn_currency"     => Joomla\Utilities\ArrayHelper::getValue($data, "txn_currency"),
+            "txn_status"       => Joomla\Utilities\ArrayHelper::getValue($data, "txn_status"),
             "txn_date"         => $date->toSql(),
-            "extra_data"       => JArrayHelper::getValue($data, "extra_data"),
+            "extra_data"       => Joomla\Utilities\ArrayHelper::getValue($data, "extra_data"),
             "service_provider" => "Mollie iDEAL",
         );
 
@@ -564,18 +559,17 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
      * Save transaction
      *
      * @param array               $transactionData
-     * @param CrowdFundingProject $project
+     * @param Crowdfunding\Project $project
      *
      * @return null|array
      */
     protected function storeTransaction($transactionData, $project)
     {
         // Get transaction by txn ID
-        jimport("crowdfunding.transaction");
         $keys        = array(
-            "txn_id" => JArrayHelper::getValue($transactionData, "txn_id")
+            "txn_id" => Joomla\Utilities\ArrayHelper::getValue($transactionData, "txn_id")
         );
-        $transaction = new CrowdFundingTransaction(JFactory::getDbo());
+        $transaction = new Crowdfunding\Transaction(JFactory::getDbo());
         $transaction->load($keys);
 
         // DEBUG DATA
@@ -617,9 +611,9 @@ class plgCrowdFundingPaymentMollieIdeal extends CrowdFundingPaymentPlugin
 
         // If the new transaction is completed,
         // update project funded amount.
-        $amount = JArrayHelper::getValue($transactionData, "txn_amount");
+        $amount = Joomla\Utilities\ArrayHelper::getValue($transactionData, "txn_amount");
         $project->addFunds($amount);
-        $project->updateFunds();
+        $project->storeFunds();
 
         return $transactionData;
     }

@@ -4,8 +4,7 @@ jQuery(document).ready(function() {
 		event.preventDefault();
 		
 		var bankId    = jQuery(this).val();
-		console.log(bankId);
-		
+
 		if(bankId) {
 			
 			var projectId = jQuery(this).data("project-id");
@@ -50,7 +49,6 @@ jQuery(document).ready(function() {
 			});
 			
 		} else { // Hide the button
-			
 			jQuery("#js-continue-mollie").attr("href", "#").hide();
 		}
 		
