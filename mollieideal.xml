@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<extension version="3.4" type="plugin" group="crowdfundingpayment" method="upgrade">
+<extension version="3.6" type="plugin" group="crowdfundingpayment" method="upgrade">
     <name>PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL</name>
     <author>Todor Iliev</author>
-    <copyright>Copyright (C) 2015 Todor Iliev ( ITPrism.com ). All rights reserved.</copyright>
+    <copyright>Copyright (C) 2017 Todor Iliev ( ITPrism.com ). All rights reserved.</copyright>
     <license>http://www.gnu.org/licenses/gpl-3.0.en.html GNU/GPL</license>
     <authorEmail>todor@itprism.com</authorEmail>
     <authorUrl>http://itprism.com</authorUrl>
-    <version>2.1</version>
-    <creationDate>13 November, 2015</creationDate>
+    <version>2.2</version>
+    <creationDate>12 March, 2017</creationDate>
     <description><![CDATA[
     <p>Crowdfunding Payment - Mollie iDEAL is a plugin that enables iDEAL payments via Mollie.</p>
     <p><a href='http://itprism.com/' target='_blank'>Subscribe for the newsletter</a> to receive information about updates and new ITPrism extensions.</p>
@@ -28,8 +28,8 @@
 		<fields name="params">
 			<fieldset name="basic" addfieldpath="/administrator/components/com_crowdfunding/models/fields">
     	        <field name="api_key" type="text" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_LIVE_API_KEY" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_LIVE_API_KEY_DESC" class="input-xxlarge" />
-    	        <field name="cancel_url" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_RETURN_URL_DESC" class="span6" size="80" />
-    	        <field name="callback_url" type="text"  label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_NOTIFY_URL_DESC" class="span6" size="80" default="index.php?option=com_crowdfunding&amp;task=notifier.notify&amp;format=raw&amp;payment_service=mollieideal" />
+    	        <field name="return_url" type="textarea" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_REDIRECT_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_REDIRECT_URL_URL_DESC" class="input-xxlarge" />
+    	        <field name="callback_url" type="textarea" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_WEBHOOK_URL" description="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_WEBHOOK_URL_DESC" class="input-xxlarge" default="index.php?option=com_crowdfunding&amp;task=notifier.notify&amp;format=raw&amp;payment_service=mollieideal" />
 			</fieldset>
 
             <fieldset name="sandbox" label="PLG_CROWDFUNDINGPAYMENT_MOLLIEIDEAL_TESTMODE">
@@ -52,4 +52,8 @@
             </fieldset>
         </fields>
 	</config>
+
+    <updateservers>
+        <server type="extension" priority="1" name="CrowdfundingPayment - Mollie iDEAL">http://cdn.itprism.com/updates/crowdfunding/plugins/plg_crowdfundingpayment_mollieideal.xml</server>
+    </updateservers>
 </extension>

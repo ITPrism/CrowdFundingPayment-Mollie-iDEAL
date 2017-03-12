@@ -3,16 +3,25 @@
  * @package      Crowdfunding
  * @subpackage   Plugins
  * @author       Todor Iliev
- * @copyright    Copyright (C) 2015 Todor Iliev <todor@itprism.com>. All rights reserved.
+ * @copyright    Copyright (C) 2017 Todor Iliev <todor@itprism.com>. All rights reserved.
  * @license      GNU General Public License version 3 or later; see LICENSE.txt
  */
+
+use Joomla\Utilities\ArrayHelper;
+use Joomla\String\StringHelper;
+use Crowdfunding\Payment;
+use Crowdfunding\Transaction\Transaction;
+use Crowdfunding\Transaction\TransactionManager;
+use Prism\Payment\Result as PaymentResult;
 
 // no direct access
 defined('_JEXEC') or die;
 
 jimport('Prism.init');
 jimport('Crowdfunding.init');
-jimport('EmailTemplates.init');
+jimport('Emailtemplates.init');
+
+JObserverMapper::addObserverClassToClass(Crowdfunding\Observer\Transaction\TransactionObserver::class, Crowdfunding\Transaction\TransactionManager::class, array('typeAlias' => 'com_crowdfunding.payment'));
 
 /**
  * Crowdfunding Mollie iDEAL Payment Plugin
@@ -20,18 +29,16 @@ jimport('EmailTemplates.init');
  * @package      Crowdfunding
  * @subpackage   Plugins
  */
-class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
+class plgCrowdfundingPaymentMollieIdeal extends Payment\Plugin
 {
-    protected $version = '2.1';
+    protected $version = '2.2';
 
     public function __construct(&$subject, $config = array())
     {
-        parent::__construct($subject, $config);
-
         $this->serviceProvider = 'Mollie iDEAL';
         $this->serviceAlias    = 'mollieideal';
-        $this->textPrefix     .= '_' . \JString::strtoupper($this->serviceAlias);
-        $this->debugType      .= '_' . \JString::strtoupper($this->serviceAlias);
+        
+        parent::__construct($subject, $config);
     }
 
     /**
@@ -80,13 +87,13 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $html[] = '<p>' . JText::_($this->textPrefix . '_INFO') . '</p>';
 
         if (!$apiKey) {
-            $html[] = '<div class="bg-warning p-10-5"><span class="fa fa-warning"></span> ' . JText::_($this->textPrefix . '_ERROR_PLUGIN_NOT_CONFIGURED') . '</div>';
+            $html[] = '<div class="alert alert-warning p-10-5"><span class="fa fa-warning"></span> ' . JText::_($this->textPrefix . '_ERROR_PLUGIN_NOT_CONFIGURED') . '</div>';
             $html[] = '</div>'; // Close "well".
             return implode("\n", $html);
         }
 
         // Register Mollie classes.
-        jimport("Prism.libs.Mollie.init");
+        jimport('Prism.libs.Mollie.init');
 
         $mollie = new Mollie_API_Client;
         $mollie->setApiKey($apiKey);
@@ -113,10 +120,10 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $html[] = '<div class="bg-warning m-10" id="js-mollie-ideal-alert" style="display: none;"></div>';
 
         $html[] = '<img src="media/com_crowdfunding/images/ajax-loader.gif" width="16" height="16" id="js-mollie-ajax-loading" style="display: none;" />';
-        $html[] = '<a href="#" class="btn btn-primary mtb-10" id="js-continue-mollie" style="display: none;"><span class="glyphicon glyphicon-chevron-right"></span> ' . JText::_($this->textPrefix . '_CONTINUE_TO_MOLLIE') . '</a>';
+        $html[] = '<a href="#" class="btn btn-primary mtb-10" id="js-continue-mollie" style="display: none;"><span class="fa fa-chevron-right "></span> ' . JText::_($this->textPrefix . '_CONTINUE_TO_MOLLIE') . '</a>';
 
         if ($this->params->get('testmode', 1)) {
-            $html[] = '<p class="bg-info p-10-5 mt-5"><span class="glyphicon glyphicon-info-sign"></span> ' . JText::_($this->textPrefix . '_WORKS_TESTMODE') . '</p>';
+            $html[] = '<p class="alert alert-info p-10-5 mt-5"><span class="fa fa-info-circle"></span> ' . JText::_($this->textPrefix . '_WORKS_TESTMODE') . '</p>';
         }
 
         $html[] = '</div>'; // Close "well".
@@ -130,7 +137,13 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
      * @param string    $context This string gives information about that where it has been executed the trigger.
      * @param Joomla\Registry\Registry $params  The parameters of the component
      *
-     * @return array|null
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     * @throws \OutOfBoundsException
+     * @throws \RuntimeException
+     * @throws \Mollie_API_Exception
+     *
+     * @return null|PaymentResult
      */
     public function onPaymentNotify($context, $params)
     {
@@ -154,7 +167,6 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         // Validate request method
         $requestMethod = $this->app->input->getMethod();
         if (strcmp('POST', $requestMethod) !== 0) {
-
             $this->log->add(
                 JText::_($this->textPrefix . '_ERROR_INVALID_REQUEST_METHOD'),
                 $this->debugType,
@@ -174,13 +186,13 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $keys = array(
             'unique_key' => $transactionId
         );
-        $paymentSession = $this->getPaymentSession($keys);
+        $paymentSessionRemote = $this->getPaymentSession($keys);
 
         // DEBUG DATA
-        JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_PAYMENT_SESSION'), $this->debugType, $paymentSession->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_PAYMENT_SESSION'), $this->debugType, $paymentSessionRemote->getProperties()) : null;
 
         // Verify the gateway.
-        $gateway = $paymentSession->getGateway();
+        $gateway = $paymentSessionRemote->getGateway();
         if (!$this->isValidPaymentGateway($gateway)) {
             return null;
         }
@@ -188,15 +200,8 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         // Get API key.
         $apiKey = $this->getApiKey();
 
-        // Prepare the array that will be returned by this method
-        $result = array(
-            'project'          => null,
-            'reward'           => null,
-            'transaction'      => null,
-            'payment_session'  => null,
-            'service_provider' => $this->serviceProvider,
-            'service_alias'    => $this->serviceAlias
-        );
+        // Prepare the array that have to be returned by this method.
+        $paymentResult = new PaymentResult;
 
         // Register Mollie classes.
         jimport('Prism.libs.Mollie.init');
@@ -204,23 +209,22 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $mollie = new Mollie_API_Client;
         $mollie->setApiKey($apiKey);
 
-        $payment    = $mollie->payments->get($transactionId);
+        $payment = $mollie->payments->get($transactionId);
 
         // DEBUG DATA
         JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_PAYMENT_OBJECT'), $this->debugType, $payment) : null;
 
         if ($payment->id) {
-
-            // Get currency
-            $currency   = Crowdfunding\Currency::getInstance(JFactory::getDbo(), $params->get('project_currency'));
+            $containerHelper  = new Crowdfunding\Container\Helper();
+            $currency         = $containerHelper->fetchCurrency($this->container, $params);
 
             // Prepare the transaction data that will be validated.
             $transactionData = array(
                 'txn_currency' => $currency->getCode(),
                 'txn_amount'   => $payment->amount,
-                'project_id'   => $paymentSession->getProjectId(),
-                'user_id'      => $paymentSession->getUserId(),
-                'reward_id'    => ($paymentSession->isAnonymous()) ? 0 : $paymentSession->getRewardId(), // Set reward ID to 0 because anonymous users cannot sellect reward.
+                'project_id'   => $paymentSessionRemote->getProjectId(),
+                'user_id'      => $paymentSessionRemote->getUserId(),
+                'reward_id'    => $paymentSessionRemote->isAnonymous() ? 0 : $paymentSessionRemote->getRewardId(), // Set reward ID to 0 because anonymous users cannot sellect reward.
                 'txn_id'       => $payment->id
             );
 
@@ -248,83 +252,49 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
             // Validate transaction data
             $validData = $this->validateData($transactionData);
             if ($validData === null) {
-                return $result;
+                return null;
             }
 
             // DEBUG DATA
             JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_TRANSACTION_DATA'), $this->debugType, $validData) : null;
 
-            // Get project
-            $projectId = Joomla\Utilities\ArrayHelper::getValue($validData, 'project_id');
-            $project   = Crowdfunding\Project::getInstance(JFactory::getDbo(), $projectId);
-
-            // DEBUG DATA
-            JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_PROJECT_OBJECT'), $this->debugType, $project->getProperties()) : null;
-
-            // Check for valid project
-            if (!$project->getId()) {
-
-                // Log data in the database
-                $this->log->add(
-                    JText::_($this->textPrefix . '_ERROR_INVALID_PROJECT'),
-                    $this->debugType,
-                    $validData
-                );
-
-                return $result;
-            }
-
-            // Set the receiver of funds
+            // Set the receiver ID.
+            $project = $containerHelper->fetchProject($this->container, $validData['project_id']);
             $validData['receiver_id'] = $project->getUserId();
+
+            // Get reward object.
+            $reward = null;
+            if ($validData['reward_id']) {
+                $reward = $containerHelper->fetchReward($this->container, $validData['reward_id'], $project->getId());
+            }
 
             // Save transaction data.
             // If it is not completed, return empty results.
             // If it is complete, continue with process transaction data
-            $transactionData = $this->storeTransaction($validData, $project);
-            if ($transactionData === null) {
-                return $result;
+            $transaction = $this->storeTransaction($validData);
+            if ($transaction === null) {
+                return null;
             }
 
-            // Update the number of distributed reward.
-            $rewardId = Joomla\Utilities\ArrayHelper::getValue($transactionData, 'reward_id', 0, 'int');
-            $reward   = null;
-            if ($rewardId > 0) {
-                $reward = $this->updateReward($transactionData);
+            // Generate object of data, based on the transaction properties.
+            $paymentResult->transaction = $transaction;
 
-                // Validate the reward.
-                if (!$reward) {
-                    $transactionData['reward_id'] = 0;
-                }
-            }
+            // Generate object of data based on the project properties.
+            $paymentResult->project = $project;
 
-            //  Prepare the data that will be returned
-
-            $result['transaction'] = Joomla\Utilities\ArrayHelper::toObject($transactionData);
-
-            // Generate object of data based on the project properties
-            $properties        = $project->getProperties();
-            $result['project'] = Joomla\Utilities\ArrayHelper::toObject($properties);
-
-            // Generate object of data based on the reward properties
+            // Generate object of data based on the reward properties.
             if ($reward !== null and ($reward instanceof Crowdfunding\Reward)) {
-                $properties       = $reward->getProperties();
-                $result['reward'] = Joomla\Utilities\ArrayHelper::toObject($properties);
+                $paymentResult->reward = $reward;
             }
 
             // Generate data object, based on the payment session properties.
-            $properties       = $paymentSession->getProperties();
-            $result['payment_session'] = Joomla\Utilities\ArrayHelper::toObject($properties);
+            $paymentResult->paymentSession = $paymentSessionRemote;
 
-            // DEBUG DATA
-            JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_RESULT_DATA'), $this->debugType, $result) : null;
-
-            // Remove payment session
-            $txnStatus = (isset($result['transaction']->txn_status)) ? $result['transaction']->txn_status : null;
-            $this->closePaymentSession($paymentSession, $txnStatus);
+            // Removing intention.
+            $this->removeIntention($paymentSessionRemote, $transaction);
         }
 
-        return $result;
-
+        return $paymentResult;
     }
 
     /**
@@ -333,9 +303,15 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
      * @param string $context
      * @param Joomla\Registry\Registry $params
      *
-     * @return array|null
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     * @throws \OutOfBoundsException
+     * @throws \RuntimeException
+     * @throws \Mollie_API_Exception
+     *
+     * @return stdClass|null
      */
-    public function onPaymentsPreparePayment($context, &$params)
+    public function onPaymentsPreparePayment($context, $params)
     {
         if (strcmp('com_crowdfunding.preparepayment.mollieideal', $context) !== 0) {
             return null;
@@ -366,8 +342,8 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $userId    = JFactory::getUser()->get('id');
 
         // Get project
-        $project = new Crowdfunding\Project(JFactory::getDbo());
-        $project->load($projectId);
+        $containerHelper  = new Crowdfunding\Container\Helper();
+        $project          = $containerHelper->fetchProject($this->container, $projectId);
 
         if (!$project->getId()) {
             $response = array(
@@ -376,7 +352,7 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
                 'text'    => JText::_($this->textPrefix . '_ERROR_INVALID_PROJECT')
             );
 
-            return $response;
+            return ArrayHelper::toObject($response);
         }
 
         //  PAYMENT SESSION
@@ -384,13 +360,12 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $paymentSessionContext    = Crowdfunding\Constants::PAYMENT_SESSION_CONTEXT . $project->getId();
         $paymentSessionLocal      = $this->app->getUserState($paymentSessionContext);
 
-        $paymentSession = $this->getPaymentSession(array(
+        $paymentSessionRemote = $this->getPaymentSession(array(
             'session_id'    => $paymentSessionLocal->session_id
         ));
 
         // Set main data if it is a new payment session.
-        if (!$paymentSession->getId()) {
-
+        if (!$paymentSessionRemote->getId()) {
             $recordDate = new JDate();
 
             $paymentSessionData['user_id']     = $userId;
@@ -399,15 +374,15 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
             $paymentSessionData['reward_id']   = $rewardId;
             $paymentSessionData['record_date'] = $recordDate->toSql();
 
-            $paymentSession->bind($paymentSessionData);
+            $paymentSessionRemote->bind($paymentSessionData);
         }
 
         // Set the gateway.
-        $paymentSession->setGateway($this->serviceAlias);
-        $paymentSession->store();
+        $paymentSessionRemote->setGateway($this->serviceAlias);
+        $paymentSessionRemote->store();
 
         // DEBUG DATA
-        JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_PAYMENT_SESSION'), $this->debugType, $paymentSession->getProperties()) : null;
+        JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_PAYMENT_SESSION'), $this->debugType, $paymentSessionRemote->getProperties()) : null;
 
         // Prepare URLs
         $returnUrl   = $this->getReturnUrl($project->getSlug(), $project->getCatSlug());
@@ -422,13 +397,13 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
 
         $paymentOptions = array(
             'amount'      => (float)$amount,
-            'description' => JString::substr($project->getTitle(), 0, 32),
+            'description' => StringHelper::substr($project->getTitle(), 0, 32),
             'redirectUrl' => $returnUrl,
             'webhookUrl'  => $callbackUrl,
             'issuer'      => $bankId,
             'method'      => 'ideal',
             'metadata'    => array(
-                'payment_session_id' => $paymentSession->getId()
+                'payment_session_id' => $paymentSessionRemote->getId()
             )
         );
 
@@ -440,7 +415,6 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $paymentGateway->setApiKey($apiKey);
 
         try {
-
             $payment = $paymentGateway->payments->create($paymentOptions);
 
             // DEBUG DATA
@@ -449,11 +423,10 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
             $url   = $payment->getPaymentUrl();
 
             // Store the ID.
-            $paymentSession->setUniqueKey($payment->id);
-            $paymentSession->storeUniqueKey();
+            $paymentSessionRemote->setUniqueKey($payment->id);
+            $paymentSessionRemote->storeUniqueKey();
 
         } catch (Mollie_API_Exception $e) {
-
             JLog::add(JText::_($this->textPrefix . '_ERROR_CALL_FAILED_S', htmlspecialchars($e->getMessage()), htmlspecialchars($e->getField())));
 
             $response = array(
@@ -462,7 +435,7 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
                 'text'    => JText::_($this->textPrefix . '_ERROR_CALL_FAILED')
             );
 
-            return $response;
+            return ArrayHelper::toObject($response);
         }
 
         // Return response
@@ -474,7 +447,7 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
             )
         );
 
-        return $response;
+        return ArrayHelper::toObject($response);
     }
 
     /**
@@ -482,36 +455,46 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
      *
      * @param array $data This is a transaction data, that comes from the payment gateway.
      *
+     * @throws \InvalidArgumentException
+     *
      * @return null|array
      */
     protected function validateData($data)
     {
         $date = new JDate();
 
+        $status = ArrayHelper::getValue($data, 'txn_status');
+
+        if (strcmp($status, 'paid') === 0) {
+            $status = Prism\Constants::PAYMENT_STATUS_COMPLETED;
+        }
+
+        if (strcmp($status, 'expired') === 0) {
+            $status = Prism\Constants::PAYMENT_STATUS_FAILED;
+        }
+
+        if (strcmp($status, 'cancelled') === 0) {
+            $status = Prism\Constants::PAYMENT_STATUS_CANCELED;
+        }
+
         // Prepare transaction data
         $transaction = array(
-            'investor_id'      => Joomla\Utilities\ArrayHelper::getValue($data, 'user_id', 0, 'int'),
-            'project_id'       => Joomla\Utilities\ArrayHelper::getValue($data, 'project_id', 0, 'int'),
-            'reward_id'        => Joomla\Utilities\ArrayHelper::getValue($data, 'reward_id', 0, 'int'),
-            'txn_id'           => Joomla\Utilities\ArrayHelper::getValue($data, 'txn_id'),
-            'txn_amount'       => Joomla\Utilities\ArrayHelper::getValue($data, 'txn_amount'),
-            'txn_currency'     => Joomla\Utilities\ArrayHelper::getValue($data, 'txn_currency'),
-            'txn_status'       => Joomla\Utilities\ArrayHelper::getValue($data, 'txn_status'),
+            'investor_id'      => ArrayHelper::getValue($data, 'user_id', 0, 'int'),
+            'project_id'       => ArrayHelper::getValue($data, 'project_id', 0, 'int'),
+            'reward_id'        => ArrayHelper::getValue($data, 'reward_id', 0, 'int'),
+            'txn_id'           => ArrayHelper::getValue($data, 'txn_id'),
+            'txn_amount'       => ArrayHelper::getValue($data, 'txn_amount'),
+            'txn_currency'     => ArrayHelper::getValue($data, 'txn_currency'),
+            'txn_status'       => $status,
             'txn_date'         => $date->toSql(),
-            'extra_data'       => Joomla\Utilities\ArrayHelper::getValue($data, 'extra_data'),
+            'extra_data'       => ArrayHelper::getValue($data, 'extra_data'),
             'service_provider' => $this->serviceProvider,
             'service_alias'    => $this->serviceAlias
         );
 
         // Check User Id, Project ID and Transaction ID
         if (!$transaction['project_id'] or !$transaction['txn_id']) {
-            // Log data in the database
-            $this->log->add(
-                JText::_($this->textPrefix . '_ERROR_INVALID_TRANSACTION_DATA'),
-                $this->debugType,
-                $transaction
-            );
-
+            $this->log->add(JText::_($this->textPrefix . '_ERROR_INVALID_TRANSACTION_DATA'), $this->debugType, $transaction);
             return null;
         }
 
@@ -521,25 +504,28 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
     /**
      * Save transaction
      *
-     * @param array               $transactionData
-     * @param Crowdfunding\Project $project
+     * @param array  $transactionData
      *
-     * @return null|array
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     *
+     * @return null|Transaction
      */
-    protected function storeTransaction($transactionData, $project)
+    protected function storeTransaction($transactionData)
     {
-        // Get transaction by txn ID
-        $keys        = array(
-            'txn_id' => Joomla\Utilities\ArrayHelper::getValue($transactionData, 'txn_id')
+        // Get transaction object by transaction ID
+        $keys  = array(
+            'txn_id' => ArrayHelper::getValue($transactionData, 'txn_id')
         );
-        $transaction = new Crowdfunding\Transaction(JFactory::getDbo());
+        $transaction = new Transaction(JFactory::getDbo());
         $transaction->load($keys);
 
         // DEBUG DATA
         JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_TRANSACTION_OBJECT'), $this->debugType, $transaction->getProperties()) : null;
 
-        // Check for valid transaction.
-        // If the current status is completed, stop the process.
+        // Check for existed transaction
+        // If the current status if completed, stop the payment process.
         if ($transaction->getId() and $transaction->isCompleted()) {
             return null;
         }
@@ -550,27 +536,43 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
             unset($transactionData['extra_data']);
         }
 
-        // Store the new transaction data.
-        $transaction->bind($transactionData);
-        $transaction->store();
+        // IMPORTANT: It must be placed before ->bind();
+        $options = array(
+            'old_status' => $transaction->getStatus(),
+            'new_status' => $transactionData['txn_status']
+        );
 
-        // If it is not completed (it might be pending or other status),
-        // stop the process. Only completed transaction will continue
-        // and will process the project, rewards,...
-        if (!$transaction->isCompleted()) {
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_TRANSACTION_STATUSES'), $this->debugType, $options) : null;
+
+        // Create the new transaction record if there is not record.
+        // If there is new record, store new data with new status.
+        // Example: It has been 'pending' and now is 'completed'.
+        // Example2: It has been 'pending' and now is 'failed'.
+        $transaction->bind($transactionData);
+
+        // DEBUG DATA
+        JDEBUG ? $this->log->add(JText::_($this->textPrefix . '_DEBUG_TRANSACTION_OBJECT_AFTER_BIND'), $this->debugType, $transaction->getProperties()) : null;
+
+        // Start database transaction.
+        $db = JFactory::getDbo();
+
+        try {
+            $db->transactionStart();
+
+            $transactionManager = new TransactionManager($db);
+            $transactionManager->setTransaction($transaction);
+            $transactionManager->process('com_crowdfunding.payment', $options);
+
+            $db->transactionCommit();
+        } catch (Exception $e) {
+            $db->transactionRollback();
+
+            $this->log->add(JText::_($this->textPrefix . '_ERROR_TRANSACTION_PROCESS'), $this->errorType, $e->getMessage());
             return null;
         }
 
-        // Set transaction ID.
-        $transactionData['id'] = $transaction->getId();
-
-        // If the new transaction is completed,
-        // update project funded amount.
-        $amount = Joomla\Utilities\ArrayHelper::getValue($transactionData, 'txn_amount');
-        $project->addFunds($amount);
-        $project->storeFunds();
-
-        return $transactionData;
+        return $transaction;
     }
 
     /**
@@ -585,14 +587,12 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
         $banks = array();
 
         foreach ($issuers as $issuer) {
-
             if ($issuer->method === Mollie_API_Object_Method::IDEAL) {
                 $banks[] = array(
                     'value' => htmlspecialchars($issuer->id),
                     'text'  => htmlspecialchars($issuer->name)
                 );
             }
-
         }
 
         return $banks;
@@ -600,10 +600,10 @@ class plgCrowdfundingPaymentMollieIdeal extends Crowdfunding\Payment\Plugin
 
     protected function getApiKey()
     {
-        if (!$this->params->get('testmode', 1)) {
-            return $this->params->get('api_key');
-        } else {
+        if ((bool)$this->params->get('testmode', 1)) {
             return $this->params->get('test_api_key');
+        } else {
+            return $this->params->get('api_key');
         }
     }
 }
